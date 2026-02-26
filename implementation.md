@@ -138,7 +138,47 @@ You **must** use an open-source AI Gateway like **LiteLLM**.
    ```
 3. In LibreChat's `.env`, you remove the direct `ANTHROPIC_API_KEY` and instead tell LibreChat to talk to your LiteLLM server using a custom endpoint in `librechat.yaml`.
 
-This guarantees that your users never see an "Invalid Token" error as long as at least one of your 3 licenses is valid!
+### Adding Groq Support (Custom Endpoint)
+Groq delivers incredibly fast inference using Llama and Mixtral models. Because it uses the standard OpenAI API format, you do not need to hack the core code to add it; you simply add it as a "Custom Endpoint" in your `librechat.yaml` file.
+
+#### Step 1: Add the API Key to `.env`
+First, add your Groq API key to your `.env` file (you can name the variable whatever you want, but sticking to standard naming is good practice):
+```env
+GROQ_API_KEY=gsk_your_groq_api_key_here
+```
+
+#### Step 2: Configure `librechat.yaml`
+Next, add Groq to the `custom` endpoints array in your `librechat.yaml` file. This tells LibreChat where to send the requests and which models to populate in the dropdown.
+
+```yaml
+endpoints:
+  custom:
+    - name: "Groq"
+      apiKey: "${GROQ_API_KEY}"
+      baseURL: "https://api.groq.com/openai/v1"
+      models:
+        default: ["llama3-8b-8192", "llama3-70b-8192", "mixtral-8x7b-32768", "gemma-7b-it"]
+        fetch: false # Set to true if you want LibreChat to fetch the latest models from Groq automatically
+      titleConvo: true
+      titleModel: "llama3-8b-8192"
+      summarize: false
+      summaryModel: "llama3-8b-8192"
+      forcePrompt: false
+      modelDisplayLabel: "Groq"
+```
+Once you restart your docker container, "Groq" will appear in the main dropdown menu alongside Anthropic and Google!
+
+### Restricting Specific Models to Specific Users (RBAC)
+If you want to allow managers to use expensive models (like `claude-3-opus`) but restrict interns to cheaper models (like `llama3-8b` or `gpt-4o-mini`), you do **not** configure this in the `.env` or `yaml` files. LibreChat has a built-in **Admin Dashboard** that handles this dynamically via Role-Based Access Control (RBAC).
+
+#### How to configure user-specific model access:
+1. **The Admin Account:** The very first user to log in to your LibreChat instance is automatically designated as the `ADMIN`. (If you need to manually make someone an admin later, you can do so in the MongoDB database).
+2. **Access the Panel:** Log in as the Admin, click on your profile name in the bottom left, and open the **Admin Panel**.
+3. **Create Roles:** Navigate to the **Roles & Permissions** tab. Create custom roles (e.g., "Interns", "Marketing", "Engineering").
+4. **Configure Endpoint/Model Permissions:** Inside the settings for each Role, you will see a section for **Model Access**. Here, you can uncheck or explicitly deny access to specific endpoints (like "Anthropic") or specific underlying models.
+5. **Assign Users:** When a new user (like Manoj) logs in through `econnect`, they are assigned the `USER` role by default. The Admin can click on the **Users** tab in the dashboard and change Manoj's role to "Engineering". 
+
+When Manoj reloads the page, his "Model Selection" dropdown will magically shrink to only show the models you permitted his role to see!
 
 ---
 
