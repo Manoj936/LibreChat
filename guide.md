@@ -77,3 +77,63 @@ Safely removing a feature from a full-stack codebase requires ensuring you clean
 1. Run `npm run build` or `npm run build:packages` to ensure there are no compilation errors.
 2. Run `npm run lint` to find any leftover unused imports.
 3. Start the application locally and verify that the app builds and runs without erroring on boot.
+
+---
+
+## 5. Configuration & Deployment Architecture
+
+Understanding how the various configuration files interact is essential for deploying and customizing LibreChat:
+
+1.  **`Dockerfile` / `Dockerfile.multi`**: The blueprint that packages the `api` (backend) and `client` (frontend) source code into a runnable container. It defines the operating system and dependencies but contains no sensitive data.
+2.  **`docker-compose.yml`**: The orchestrator that spins up the LibreChat container alongside required services like MongoDB (for data storage) and Meilisearch (for fast conversation indexing). It maps volumes and networks them together.
+3.  **`.env`**: The environment injector. `docker-compose.yml` reads this file and passes the variables into the running LibreChat container. This is where you store sensitive API keys, LDAP credentials, and JWT secrets.
+4.  **`librechat.yaml`**: The feature configurator. This file dynamically controls the UI and behavior (like defining custom AI Endpoints, setting file upload limits, and UI toggles) without requiring a container rebuild.
+
+---
+
+## 6. The Memory Layer
+
+LibreChat's "Memory" layer is built on **MongoDB**:
+
+1.  **Core Storage:** All prompts, responses, conversation branches, presets, and customized user settings are permanently stored in the `LibreChat` database within the MongoDB container.
+2.  **Data Structure:** The schemas defining these memory objects (like `Message` or `Conversation`) are located in `api/models/`.
+3.  **Search Layer:** To quickly retrieve past memories and messages, the text data is mirrored to **Meilisearch**, a secondary database service running alongside MongoDB that provides instant, typo-tolerant search capabilities.
+
+---
+
+## 7. Context Window & Token Management
+
+Sending the entire history of a long conversation to an AI provider every time would rapidly consume tokens and hit the model's limits. LibreChat prevents this through a smart pruning and summarization system (handled primarily in `api/app/clients/BaseClient.js`):
+
+### 1. The Token Context Limit
+Every AI model configured in LibreChat has a defined `maxContextTokens` limit. Before making a request, LibreChat counts the exact number of tokens for every single message in the chat history.
+
+### 2. "First In, First Out" Truncation
+When a user sends a new message in a long conversation, LibreChat works backwards. It adds the **newest** messages first to an invisible "Context Payload" bucket until the payload reaches the `maxContextTokens` threshold. Any messages older than that limit are **pruned** (dropped from the API payload sent to the AI provider) to save tokens. They remain intact in the MongoDB history for the user to view.
+
+### 3. Auto-Summarization
+To ensure the AI doesn't lose the overarching context when older messages are pruned, LibreChat can automatically run a **Summary generation**. It takes the dropped older messages, uses a cheaper and faster model (like `gpt-4o-mini` or `claude-3-haiku`) to write a terse summary of the distant past, and injects that summary as a "System Prompt" instruction at the top of the payload.
+
+The resulting API payload structure looks like this:
+1. **[System]**: "Summary of the distant past: [Generated Summary]" *(Very cheap tokens)*
+2. **[User]**: Recent Message
+3. **[AI]**: Recent Response
+4. **[User]**: *Latest prompt*
+
+---
+
+## 8. Why do the RAG API and Meilisearch exist in Docker?
+
+If MongoDB handles all the chat history and the backend manages the token truncation limits, you might wonder why `rag_api` and `meilisearch` are included in the `docker-compose.yml`.
+
+### Meilisearch (Conversation Search)
+While MongoDB is great for rigidly storing and retrieving exact matches of data (like loading a specific conversation ID), it is notoriously slow/inefficient at **fuzzy full-text search**.
+- When a user types a half-remembered phrase into the search bar (e.g. "econnect login issues payload"), they are searching across thousands of past messages.
+- **Meilisearch** is an ultra-fast, typo-tolerant search engine specifically designed for this. MongoDB sends a copy of the message text to Meilisearch in the background. When the user searches, LibreChat asks Meilisearch to find the message instantly, rather than forcing MongoDB to slowly scan every document.
+
+### The RAG API (Retrieval-Augmented Generation & File Chat)
+The Node.js backend (`api/`) is excellent at handling chat streams and database logic, but Node.js is not the best ecosystem for heavy mathematical text-processing, vector math, and file parsing.
+- The **RAG API** is a separate microservice written in **Python**.
+- When an employee uploads a massive 100-page PDF or a Word document into the chat and asks the AI a question about it, it would blow past the `maxContextTokens` immediately if sent raw.
+- Instead, the file is sent to the **RAG API**. The Python service parses the PDF, turns the text into mathematical "embeddings" (vectors), and stores them in a highly optimized vector database (like pgvector). 
+- When the user asks a question about the PDF, LibreChat asks the RAG API to find only the 3 or 4 paragraphs most relevant to the question, and injects *only those paragraphs* into the prompt payload. This allows users to "Chat with Files" without burning millions of tokens.

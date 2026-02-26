@@ -68,6 +68,34 @@ OPENID_BUTTON_LABEL=Login with econnect
 OPENID_IMAGE_URL=https://your_econnect_logo_url.com/logo.png
 ```
 
+### Environment Variable Separation (eConnect vs. LibreChat)
+It is crucial to understand that you do **not** copy the `.env` values from `econnect` into LibreChat. They are two completely separate applications with their own databases, ports, and internal configurations.
+
+*   **eConnect's `.env`:** Contains its own database connection (e.g., PostgreSQL/MySQL) and its own unique Keycloak Client ID (e.g., `econnect-web`) and Client Secret.
+*   **LibreChat's `.env`:** Contains the MongoDB connection (`MONGO_URI`), its own internal secrets (`JWT_SECRET`), and a **brand new**, uniquely generated Keycloak Client ID (`librechat`) and Client Secret.
+
+The **ONLY** variable the two `.env` files will share in common is the URL of the Keycloak server:
+`OPENID_ISSUER=http://192.168.6.6:8080/auth/realms/HireHub`
+
+Because both applications point to the exact same `OPENID_ISSUER`, Keycloak acts as the central bridge. When a user logs into `econnect`, Keycloak sets a session cookie in their browser. When they open LibreChat and click "Login," Keycloak sees the cookie, remembers them from `econnect`, and instantly generates a login token for LibreChat without asking for a password again.
+
+### How LibreChat Extracts User Data (The OIDC Handshake)
+When an employee clicks "Login with econnect", the following invisible handshake occurs:
+1. **The Redirect:** LibreChat redirects the user's browser back to the Keycloak server (`http://192.168.6.6:8080`).
+2. **The Login Recognition:** Keycloak sees that the user is already authenticated via their PC (`econnect` session) and instantly approves the request without prompting for a password.
+3. **The Token Handoff:** Keycloak redirects the user back to LibreChat (`/oauth/openid/callback`) and provides an encrypted JWT `id_token`.
+4. **Data Extraction:** LibreChat decrypts the token. Based on the `econnect` token payload provided, it sees:
+   ```json
+   {
+     "preferred_username": "manoj mohapatra",
+     "given_name": "Manoj",
+     "family_name": "Mohapatra",
+     "email": "manojm@esspl.com",
+     "name": "Manoj Mohapatra"
+   }
+   ```
+By setting `OPENID_NAME_CLAIM=name` and `OPENID_USERNAME_CLAIM=preferred_username` in the `.env` file, LibreChat knows exactly which JSON keys to look at. It extracts the name `"Manoj Mohapatra"` and email `"manojm@esspl.com"`, and seamlessly creates (or logs into) the exact matching account in the MongoDB database. No custom backend code is required!
+
 ---
 
 ## 2. API Model Configuration
