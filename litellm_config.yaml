@@ -1,0 +1,76 @@
+model_list:
+  # ==========================================
+  # OpenAI Models (Round Robin Config)
+  # ==========================================
+  - model_name: gpt-4o
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: "os.environ/OPENAI_API_KEY_1"
+  - model_name: gpt-4o
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: "os.environ/OPENAI_API_KEY_2"
+
+  - model_name: gpt-4o-mini
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_key: "os.environ/OPENAI_API_KEY_1"
+  - model_name: gpt-4o-mini
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_key: "os.environ/OPENAI_API_KEY_2"
+
+  - model_name: gpt-4.5-preview
+    litellm_params:
+      model: openai/gpt-4.5-preview
+      api_key: "os.environ/OPENAI_API_KEY_1"
+  - model_name: gpt-4.5-preview
+    litellm_params:
+      model: openai/gpt-4.5-preview
+      api_key: "os.environ/OPENAI_API_KEY_2"
+
+  - model_name: o3-mini
+    litellm_params:
+      model: openai/o3-mini
+      api_key: "os.environ/OPENAI_API_KEY_1"
+  - model_name: o3-mini
+    litellm_params:
+      model: openai/o3-mini
+      api_key: "os.environ/OPENAI_API_KEY_2"
+
+  # ==========================================
+  # Anthropic Models (Round Robin Config)
+  # ==========================================
+  # - model_name: claude-3-5-sonnet-20241022
+  #   litellm_params:
+  #     model: anthropic/claude-3-5-sonnet-20241022
+  #     api_key: "os.environ/ANTHROPIC_API_KEY_1"
+  # - model_name: claude-3-5-sonnet-20241022
+  #   litellm_params:
+  #     model: anthropic/claude-3-5-sonnet-20241022
+  #     api_key: "os.environ/ANTHROPIC_API_KEY_2"
+
+  # - model_name: claude-3-opus-20240229
+  #   litellm_params:
+  #     model: anthropic/claude-3-opus-20240229
+  #     api_key: "os.environ/ANTHROPIC_API_KEY_1"
+  # - model_name: claude-3-opus-20240229
+  #   litellm_params:
+  #     model: anthropic/claude-3-opus-20240229
+  #     api_key: "os.environ/ANTHROPIC_API_KEY_2"
+
+  # ==========================================
+  # Groq Models (Round Robin Config)
+  # ==========================================
+  - model_name: llama-3.1-8b-instant
+    litellm_params:
+      model: groq/llama-3.1-8b-instant
+      api_key: "os.environ/GROQ_API_KEY"
+
+router_settings:
+  routing_strategy: simple-shuffle
+  num_retries: 2 # Retries on failure or rate-limit
+  fallbacks:
+    - {"gpt-4o": ["gpt-4o-mini"]}
+    - {"claude-3-opus-20240229": ["claude-3-5-sonnet-20241022"]}
+    - {"llama3-70b-8192": ["llama-3.1-8b-instant"]}
