@@ -24,6 +24,7 @@ services:
       - type: bind
         source: ./.env
         target: /app/.env
+      - ./librechat.yaml:/app/librechat.yaml
       - ./images:/app/client/public/images
       - ./uploads:/app/uploads
       - ./logs:/app/logs
@@ -35,6 +36,8 @@ services:
     volumes:
       - ./data-node:/data/db
     command: mongod --noauth
+    ports:
+      - "27017:27017"
   meilisearch:
     container_name: chat-meilisearch
     image: getmeili/meilisearch:v1.35.1
