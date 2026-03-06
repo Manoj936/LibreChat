@@ -38,6 +38,24 @@ model_list:
       model: openai/o3-mini
       api_key: "os.environ/OPENAI_API_KEY_2"
 
+  - model_name: gpt-4-turbo
+    litellm_params:
+      model: openai/gpt-4-turbo
+      api_key: "os.environ/OPENAI_API_KEY_1"
+  - model_name: gpt-4-turbo
+    litellm_params:
+      model: openai/gpt-4-turbo
+      api_key: "os.environ/OPENAI_API_KEY_2"
+
+  - model_name: gpt-3.5-turbo
+    litellm_params:
+      model: openai/gpt-3.5-turbo
+      api_key: "os.environ/OPENAI_API_KEY_1"
+  - model_name: gpt-3.5-turbo
+    litellm_params:
+      model: openai/gpt-3.5-turbo
+      api_key: "os.environ/OPENAI_API_KEY_2"
+
   # ==========================================
   # Anthropic Models (Round Robin Config)
   # ==========================================
@@ -72,5 +90,15 @@ router_settings:
   num_retries: 2 # Retries on failure or rate-limit
   fallbacks:
     - {"gpt-4o": ["gpt-4o-mini"]}
-    - {"claude-3-opus-20240229": ["claude-3-5-sonnet-20241022"]}
+    # - {"claude-3-opus-20240229": ["claude-3-5-sonnet-20241022"]}
     - {"llama3-70b-8192": ["llama-3.1-8b-instant"]}
+
+litellm_settings:
+  set_verbose: true
+
+
+
+
+
+
+  # logs: docker logs -f librechat-litellm-1
