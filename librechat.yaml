@@ -11,7 +11,10 @@ endpoints:
       titleConvo: true
       titleModel: 'gpt-4o'
 
+
 interface:
+  modelSelect: true
+  endpointsMenu: true
   bookmarks: false
   multiConvo: false
   presets: false 
